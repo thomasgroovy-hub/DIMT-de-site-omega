@@ -164,7 +164,7 @@ function renderResetPasswordScreen() {
         <p class="eyebrow">Reinitialisation</p>
         <h1>Nouveau mot de passe</h1>
         <p class="auth-copy">Saisis ton identifiant, le code recu via Discord et ton nouveau mot de passe.</p>
-        <div class="chip">Contactez Ui3349 sur Discord si necessaire.</div>
+        <div class="chip">Veuillez MP Ui3349 pour avoir votre code.</div>
       </div>
       <div class="auth-card card">
         <form id="resetPasswordForm" class="auth-form">
@@ -241,7 +241,7 @@ function bindAuthForms() {
   document.getElementById("forgotPasswordBtn").addEventListener("click", () => {
     setAuthMode("forgot");
     authError.textContent = "";
-    authHelp.textContent = "Pour toute assistance, contactez Ui3349 sur Discord.";
+    authHelp.textContent = "Veuillez MP Ui3349 pour avoir votre code.";
   });
   document.getElementById("backToLoginBtn").addEventListener("click", () => {
     setAuthMode("login");
@@ -299,8 +299,8 @@ function bindAuthForms() {
       });
       formElement.reset();
       authError.textContent = "";
-      authHelp.textContent = result.message || "Demande envoyee.";
-      showToast("Demande envoyee", "Une validation manuelle a ete notifiee.");
+      authHelp.textContent = "Veuillez MP Ui3349 pour avoir votre code.";
+      showToast("Demande envoyee", "Ui3349 a recu votre demande de code.");
       window.location.href = `/reset-password?identifiant=${encodeURIComponent(form.get("identifiant"))}`;
     } catch (error) {
       authError.textContent = error.message;

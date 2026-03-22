@@ -24,6 +24,10 @@ const SIGNATURE_DIR = path.join(UPLOAD_DIR, "signatures");
 const DB_PATH = path.join(DATA_DIR, "pole-maintenance.db");
 const PORT = process.env.PORT || 3000;
 const FORCE_ADMIN = /^true$/i.test(String(process.env.FORCE_ADMIN || "false"));
+const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || "").trim();
+const DISCORD_RESET_ADMIN_USER_ID = String(
+  process.env.DISCORD_RESET_ADMIN_USER_ID || "977224441828372540"
+).trim();
 const DISCORD_WEBHOOK_URL =
   process.env.DISCORD_WEBHOOK_URL ||
   "https://discordapp.com/api/webhooks/1485369745371824282/TYhWQvnUrykW4cmP52zKdYJg9_rOq5KfyZaDFlMv5BZsvaajmzIa9ojDHOt9Mc3meEis";
@@ -352,6 +356,36 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment, c
   }
 }
 
+async function sendDiscordDirectMessage(userId, content) {
+  if (!DISCORD_BOT_TOKEN || !userId) {
+    throw new Error("Configuration bot Discord manquante");
+  }
+
+  const authHeaders = {
+    Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+    "Content-Type": "application/json",
+  };
+
+  const channelResponse = await fetch("https://discord.com/api/v10/users/@me/channels", {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ recipient_id: userId }),
+  });
+  if (!channelResponse.ok) {
+    throw new Error(`Echec creation DM Discord: ${channelResponse.status}`);
+  }
+
+  const channel = await channelResponse.json();
+  const messageResponse = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ content }),
+  });
+  if (!messageResponse.ok) {
+    throw new Error(`Echec envoi DM Discord: ${messageResponse.status}`);
+  }
+}
+
 app.get("/", (_req, res) => {
   res.type("html").send(htmlPage());
 });
@@ -505,17 +539,18 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   ).run(hashToken(resetCode), addMinutes(new Date(), 10), requestInfo.lastInsertRowid);
 
   try {
-    await sendDiscordEmbed({
-      title: "Demande de reinitialisation",
-      color: 0xf59e0b,
-      fields: [
-        { name: "Identifiant", value: identifiant },
-        { name: "Code", value: resetCode },
-        { name: "Date", value: formatFrenchDate(new Date().toISOString()) },
-      ],
-    });
+    await sendDiscordDirectMessage(
+      DISCORD_RESET_ADMIN_USER_ID,
+      [
+        "Demande de reinitialisation",
+        `Identifiant site : ${identifiant}`,
+        `Code : ${resetCode}`,
+        `Date : ${formatFrenchDate(new Date().toISOString())}`,
+        "La personne doit vous MP pour recuperer son code.",
+      ].join("\n")
+    );
   } catch (error) {
-    logAction(`error:reset_webhook_failed:${identifiant}`, user.id);
+    logAction(`error:reset_dm_failed:${identifiant}`, user.id);
     console.error(error);
   }
 

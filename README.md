@@ -65,6 +65,8 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 STORAGE_DIR=/data
 TRUSTED_MACHINE_ID=id-machine-a-autoriser-plusieurs-fois
 FORCE_ADMIN=false
+DISCORD_BOT_TOKEN=token-du-bot-discord
+DISCORD_RESET_ADMIN_USER_ID=977224441828372540
 ```
 
 4. Railway detectera automatiquement le `Dockerfile` et lancera `npm start`.
@@ -81,6 +83,7 @@ Important:
 - Une machine ne peut creer qu'un seul compte, sauf si son identifiant correspond a `TRUSTED_MACHINE_ID`.
 - Si `FORCE_ADMIN=true`, tous les comptes obtiennent temporairement les permissions administrateur sans modification en base.
 - Quand `FORCE_ADMIN=false`, le retour au mode normal est automatique et l'identifiant `1` reste administrateur effectif.
+- Le reset mot de passe envoie maintenant un code par DM Discord a Ui3349 via bot, puis la validation se fait uniquement sur le site.
 - Toutes les validations sensibles sont effectuees cote serveur.
 
 ## Donnees
