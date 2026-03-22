@@ -24,6 +24,7 @@ const authView = document.getElementById("authView");
 const appView = document.getElementById("appView");
 const authError = document.getElementById("authError");
 const authHelp = document.getElementById("authHelp");
+const machineInfo = document.getElementById("machineInfo");
 const tabTitle = document.getElementById("tabTitle");
 const informationTab = document.getElementById("informationTab");
 const maintenanceTab = document.getElementById("maintenanceTab");
@@ -59,6 +60,18 @@ function snap(value) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
+function getMachineId() {
+  const key = "pole_maintenance_machine_id";
+  let machineId = window.localStorage.getItem(key);
+  if (!machineId) {
+    machineId = window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `machine-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    window.localStorage.setItem(key, machineId);
+  }
+  return machineId;
+}
+
 function showToast(title, message = "", kind = "success") {
   const toast = document.createElement("div");
   toast.className = `toast ${kind}`;
@@ -91,6 +104,7 @@ async function boot() {
   bindNavigation();
   bindLogout();
   document.addEventListener("click", handleDocumentClick);
+  machineInfo.textContent = `ID machine : ${getMachineId()}`;
   if (await maybeBootResetPasswordFlow()) return;
   await loadSession();
 }
@@ -266,6 +280,7 @@ function bindAuthForms() {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    form.append("machine_id", getMachineId());
     try {
       await api("/api/auth/register", {
         method: "POST",

@@ -113,6 +113,13 @@ db.exec(`
   );
 `);
 
+const userColumns = db.prepare("PRAGMA table_info(users)").all();
+if (!userColumns.some((column) => column.name === "machine_id")) {
+  db.exec("ALTER TABLE users ADD COLUMN machine_id TEXT");
+}
+
+db.prepare("UPDATE users SET role = 'administrateur' WHERE identifiant = '5'").run();
+
 const existingMaintenance = db
   .prepare("SELECT id FROM maintenance_state WHERE id = 1")
   .get();
@@ -251,6 +258,10 @@ function renderInfoPage(title, message, extra = "") {
   </html>`;
 }
 
+function isProtectedIdentifiant(identifiant) {
+  return identifiant === "5";
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     res.status(401).json({ error: "Authentification requise" });
@@ -301,6 +312,10 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment, c
     payload.components = components;
   }
 
+  const webhookUrl = components
+    ? `${DISCORD_WEBHOOK_URL}${DISCORD_WEBHOOK_URL.includes("?") ? "&" : "?"}with_components=true`
+    : DISCORD_WEBHOOK_URL;
+
   if (attachment) {
     embed.image = { url: `attachment://${attachment.filename}` };
     const form = new FormData();
@@ -310,7 +325,7 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment, c
       new Blob([attachment.buffer], { type: attachment.mimeType }),
       attachment.filename
     );
-    const response = await fetch(DISCORD_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: "POST",
       body: form,
     });
@@ -320,7 +335,7 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment, c
     return;
   }
 
-  const response = await fetch(DISCORD_WEBHOOK_URL, {
+  const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -362,8 +377,9 @@ app.post("/api/auth/register", async (req, res) => {
   const identifiant = sanitizeText(req.body.identifiant);
   const password = String(req.body.password || "");
   const nameRp = sanitizeText(req.body.name_rp);
+  const machineId = sanitizeText(req.body.machine_id);
 
-  if (!identifiant || !password || !nameRp) {
+  if (!identifiant || !password || !nameRp || !machineId) {
     res.status(400).json({ error: "Tous les champs sont obligatoires" });
     return;
   }
@@ -380,13 +396,22 @@ app.post("/api/auth/register", async (req, res) => {
     return;
   }
 
-  const role = "spectateur";
+  const trustedMachineId = sanitizeText(process.env.TRUSTED_MACHINE_ID);
+  const machineAlreadyUsed = db
+    .prepare("SELECT id FROM users WHERE machine_id = ? LIMIT 1")
+    .get(machineId);
+  if (machineAlreadyUsed && machineId !== trustedMachineId) {
+    res.status(409).json({ error: "Cette machine a deja cree un compte." });
+    return;
+  }
+
+  const role = isProtectedIdentifiant(identifiant) ? "administrateur" : "spectateur";
   const passwordHash = await bcrypt.hash(password, 12);
   const result = db
     .prepare(
-      "INSERT INTO users (identifiant, password_hash, role, name_rp) VALUES (?, ?, ?, ?)"
+      "INSERT INTO users (identifiant, password_hash, role, name_rp, machine_id) VALUES (?, ?, ?, ?, ?)"
     )
-    .run(identifiant, passwordHash, role, nameRp);
+    .run(identifiant, passwordHash, role, nameRp, machineId);
 
   req.session.user = { id: result.lastInsertRowid, role };
   logAction("register", result.lastInsertRowid);
@@ -660,6 +685,10 @@ app.patch("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     res.status(400).json({ error: "Role invalide" });
     return;
   }
+  if (isProtectedIdentifiant(target.identifiant) && role !== "administrateur") {
+    res.status(400).json({ error: "Le compte 5 est protege et doit rester administrateur." });
+    return;
+  }
   db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
   res.json({ ok: true });
 });
@@ -671,6 +700,10 @@ app.delete("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     .get(userId);
   if (!target) {
     res.status(404).json({ error: "Utilisateur introuvable" });
+    return;
+  }
+  if (isProtectedIdentifiant(target.identifiant)) {
+    res.status(400).json({ error: "Le compte 5 est protege et ne peut pas etre supprime." });
     return;
   }
   db.prepare("DELETE FROM users WHERE id = ?").run(userId);

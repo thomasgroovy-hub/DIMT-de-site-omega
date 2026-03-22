@@ -291,6 +291,12 @@ textarea {
   line-height: 1.6;
 }
 
+#machineInfo {
+  margin: 0;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
 .dashboard {
   display: grid;
   grid-template-columns: 272px 1fr;

@@ -63,6 +63,7 @@ NODE_ENV=production
 SESSION_SECRET=un-secret-tres-fort
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 STORAGE_DIR=/data
+TRUSTED_MACHINE_ID=id-machine-a-autoriser-plusieurs-fois
 ```
 
 4. Railway detectera automatiquement le `Dockerfile` et lancera `npm start`.
@@ -76,6 +77,8 @@ Important:
 ## Regles integrees
 
 - Les nouveaux comptes sont `spectateur` par defaut.
+- Une machine ne peut creer qu'un seul compte, sauf si son identifiant correspond a `TRUSTED_MACHINE_ID`.
+- Le compte avec l'identifiant `5` est force administrateur et protege.
 - Toutes les validations sensibles sont effectuees cote serveur.
 
 ## Donnees
