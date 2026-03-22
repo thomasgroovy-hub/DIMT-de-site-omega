@@ -120,6 +120,24 @@ if (!userColumns.some((column) => column.name === "machine_id")) {
 
 db.prepare("UPDATE users SET role = 'administrateur' WHERE identifiant = '5'").run();
 
+const protectedAdminPassword = sanitizeText(process.env.PROTECTED_ADMIN_PASSWORD);
+if (protectedAdminPassword) {
+  const protectedAdmin = db
+    .prepare("SELECT id FROM users WHERE identifiant = '5' LIMIT 1")
+    .get();
+  if (!protectedAdmin) {
+    const passwordHash = bcrypt.hashSync(protectedAdminPassword, 12);
+    db.prepare(
+      `INSERT INTO users (identifiant, password_hash, role, name_rp, machine_id)
+       VALUES ('5', ?, 'administrateur', ?, ?)`
+    ).run(
+      passwordHash,
+      sanitizeText(process.env.PROTECTED_ADMIN_NAME_RP, "Administrateur protege"),
+      "__protected_machine__"
+    );
+  }
+}
+
 const existingMaintenance = db
   .prepare("SELECT id FROM maintenance_state WHERE id = 1")
   .get();

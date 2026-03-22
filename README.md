@@ -64,6 +64,8 @@ SESSION_SECRET=un-secret-tres-fort
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 STORAGE_DIR=/data
 TRUSTED_MACHINE_ID=id-machine-a-autoriser-plusieurs-fois
+PROTECTED_ADMIN_PASSWORD=mot-de-passe-stable-pour-le-compte-5
+PROTECTED_ADMIN_NAME_RP=Administrateur protege
 ```
 
 4. Railway detectera automatiquement le `Dockerfile` et lancera `npm start`.
@@ -72,6 +74,7 @@ TRUSTED_MACHINE_ID=id-machine-a-autoriser-plusieurs-fois
 Important:
 
 - SQLite et les fichiers uploades doivent rester sur le volume monte sur `/data`, sinon ils seront perdus au redeploiement.
+- Si tu veux garantir l'acces au compte protege `5` meme si la base repart vide, renseigne `PROTECTED_ADMIN_PASSWORD`.
 - GitHub Pages ne peut pas faire tourner cette application car un backend Node/SQLite est requis.
 
 ## Regles integrees
