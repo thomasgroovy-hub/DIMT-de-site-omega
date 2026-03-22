@@ -48,6 +48,29 @@ npm start
 
 5. Ouvrir [http://localhost:3000](http://localhost:3000)
 
+## Deploiement Railway
+
+Le projet est maintenant pret pour Railway via le `Dockerfile`.
+
+1. Creer un nouveau projet Railway depuis ce repository GitHub.
+2. Ajouter un volume persistant Railway et le monter sur `/data`.
+3. Definir ces variables Railway:
+
+```bash
+NODE_ENV=production
+SESSION_SECRET=un-secret-tres-fort
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+STORAGE_DIR=/data
+```
+
+4. Railway detectera automatiquement le `Dockerfile` et lancera `npm start`.
+5. Configurer le healthcheck sur `/health`.
+
+Important:
+
+- SQLite et les fichiers uploades doivent rester sur le volume monte sur `/data`, sinon ils seront perdus au redeploiement.
+- GitHub Pages ne peut pas faire tourner cette application car un backend Node/SQLite est requis.
+
 ## Regles integrees
 
 - L'identifiant `1` devient automatiquement l'administrateur principal.

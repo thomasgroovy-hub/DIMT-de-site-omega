@@ -11,10 +11,14 @@ const Database = require("better-sqlite3");
 const app = express();
 const SQLiteStore = SQLiteStoreFactory(session);
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, "data");
-const UPLOAD_DIR = path.join(ROOT, "uploads");
+const STORAGE_DIR = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR)
+  : ROOT;
+const DATA_DIR = path.join(STORAGE_DIR, "data");
+const UPLOAD_DIR = path.join(STORAGE_DIR, "uploads");
 const IMAGE_DIR = path.join(UPLOAD_DIR, "images");
 const SIGNATURE_DIR = path.join(UPLOAD_DIR, "signatures");
 const DB_PATH = path.join(DATA_DIR, "pole-maintenance.db");
@@ -138,7 +142,7 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 12,
-      secure: false,
+      secure: "auto",
     },
   })
 );
@@ -263,6 +267,10 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment })
 
 app.get("/", (_req, res) => {
   res.type("html").send(htmlPage());
+});
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true });
 });
 
 app.get("/api/session", (req, res) => {
