@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pole de maintenance</title>
+    <link rel="stylesheet" href="/public/app.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+
+    <main class="shell">
+      <section id="authView" class="panel auth-panel">
+        <div class="auth-brand">
+          <p class="eyebrow">Plateforme interne</p>
+          <h1>Pole de maintenance</h1>
+          <p class="lede">
+            Gestion des informations, de la maintenance et des services sur une seule
+            interface persistante.
+          </p>
+        </div>
+
+        <div class="auth-card">
+          <div class="segment">
+            <button class="segment-btn active" data-auth-tab="login">Connexion</button>
+            <button class="segment-btn" data-auth-tab="register">Creation de compte</button>
+          </div>
+
+          <form id="loginForm" class="auth-form">
+            <label>
+              <span>Identifiant</span>
+              <input name="identifiant" autocomplete="username" required />
+            </label>
+            <label>
+              <span>Mot de passe</span>
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit" class="primary-btn">Se connecter</button>
+          </form>
+
+          <form id="registerForm" class="auth-form hidden">
+            <label>
+              <span>Identifiant</span>
+              <input name="identifiant" required />
+            </label>
+            <label>
+              <span>Mot de passe</span>
+              <input name="password" type="password" minlength="8" required />
+            </label>
+            <label>
+              <span>Name RP</span>
+              <input name="name_rp" required />
+            </label>
+            <button type="submit" class="primary-btn">Creer un compte</button>
+          </form>
+
+          <p id="authError" class="error-text"></p>
+        </div>
+      </section>
+
+      <section id="appView" class="dashboard hidden">
+        <aside class="sidebar panel">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h2>Pole de maintenance</h2>
+          </div>
+
+          <div id="userCard" class="user-card"></div>
+
+          <nav class="nav-list">
+            <button class="nav-btn active" data-tab="information">Information</button>
+            <button class="nav-btn" data-tab="maintenance">Maintenance</button>
+            <button class="nav-btn" data-tab="service">Service</button>
+          </nav>
+
+          <div class="sidebar-actions">
+            <button id="logoutBtn" class="ghost-btn">Deconnexion</button>
+          </div>
+        </aside>
+
+        <section class="content">
+          <header class="topbar panel">
+            <div>
+              <p class="eyebrow">Espace interne</p>
+              <h3 id="tabTitle">Information</h3>
+            </div>
+            <div id="flash" class="flash"></div>
+          </header>
+
+          <section id="informationTab" class="tab panel"></section>
+          <section id="maintenanceTab" class="tab panel hidden"></section>
+          <section id="serviceTab" class="tab panel hidden"></section>
+        </section>
+      </section>
+    </main>
+
+    <script src="/public/app.js"></script>
+  </body>
+</html>
