@@ -103,13 +103,14 @@ function bindAuthTabs() {
 function bindAuthForms() {
   document.getElementById("loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api("/api/auth/login", {
         method: "POST",
         body: JSON.stringify(Object.fromEntries(form.entries())),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await loadSession();
     } catch (error) {
       authError.textContent = error.message;
@@ -118,13 +119,14 @@ function bindAuthForms() {
 
   document.getElementById("registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(Object.fromEntries(form.entries())),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await loadSession();
     } catch (error) {
       authError.textContent = error.message;
@@ -686,14 +688,15 @@ function resetSignature() {
 
 async function submitReport(event) {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
+  const formElement = event.currentTarget;
+  const form = new FormData(formElement);
   form.append("signature", signatureCanvas.toDataURL("image/png"));
   await api("/api/reports", {
     method: "POST",
     body: JSON.stringify(Object.fromEntries(form.entries())),
   });
   setFlash("Rapport envoye");
-  event.currentTarget.reset();
+  formElement.reset();
   resetSignature();
   await loadReports();
 }
