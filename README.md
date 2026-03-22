@@ -73,9 +73,7 @@ Important:
 
 ## Regles integrees
 
-- L'identifiant `1` devient automatiquement l'administrateur principal.
 - Les nouveaux comptes sont `spectateur` par defaut.
-- Le compte `1` ne peut ni etre degrade ni etre supprime.
 - Toutes les validations sensibles sont effectuees cote serveur.
 
 ## Donnees

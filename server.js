@@ -311,7 +311,7 @@ app.post("/api/auth/register", async (req, res) => {
     return;
   }
 
-  const role = identifiant === "1" ? "administrateur" : "spectateur";
+  const role = "spectateur";
   const passwordHash = await bcrypt.hash(password, 12);
   const result = db
     .prepare(
@@ -388,11 +388,6 @@ app.patch("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     res.status(400).json({ error: "Role invalide" });
     return;
   }
-  if (target.identifiant === "1" && role !== "administrateur") {
-    res.status(400).json({ error: "L'identifiant 1 doit rester administrateur principal" });
-    return;
-  }
-
   db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
   res.json({ ok: true });
 });
@@ -404,10 +399,6 @@ app.delete("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     .get(userId);
   if (!target) {
     res.status(404).json({ error: "Utilisateur introuvable" });
-    return;
-  }
-  if (target.identifiant === "1") {
-    res.status(400).json({ error: "Le compte principal ne peut pas etre supprime" });
     return;
   }
   db.prepare("DELETE FROM users WHERE id = ?").run(userId);
