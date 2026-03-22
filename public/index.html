@@ -4,55 +4,73 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pole de maintenance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/public/app.css" />
   </head>
   <body>
     <div class="ambient ambient-a"></div>
     <div class="ambient ambient-b"></div>
+    <div id="toastContainer" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
     <main class="shell">
-      <section id="authView" class="panel auth-panel">
-        <div class="auth-brand">
+      <section id="authView" class="auth-shell hidden">
+        <div class="auth-hero card">
           <p class="eyebrow">Plateforme interne</p>
           <h1>Pole de maintenance</h1>
-          <p class="lede">
-            Gestion des informations, de la maintenance et des services sur une seule
-            interface persistante.
+          <p class="auth-copy">
+            Un espace centralise pour piloter l'information, la maintenance et le
+            suivi de service avec une lecture immediate et une edition controlee.
           </p>
+          <div class="auth-badges">
+            <span class="chip">Authentification interne</span>
+            <span class="chip">Widgets dynamiques</span>
+            <span class="chip">Rapports signes</span>
+          </div>
         </div>
 
-        <div class="auth-card">
-          <div class="segment">
-            <button class="segment-btn active" data-auth-tab="login">Connexion</button>
-            <button class="segment-btn" data-auth-tab="register">Creation de compte</button>
+        <div class="auth-card card">
+          <div class="auth-tabs">
+            <button class="tab-toggle active" data-auth-tab="login">Connexion</button>
+            <button class="tab-toggle" data-auth-tab="register">Creation de compte</button>
           </div>
 
           <form id="loginForm" class="auth-form">
-            <label>
-              <span>Identifiant</span>
-              <input name="identifiant" autocomplete="username" required />
-            </label>
-            <label>
-              <span>Mot de passe</span>
-              <input name="password" type="password" autocomplete="current-password" required />
-            </label>
-            <button type="submit" class="primary-btn">Se connecter</button>
+            <div class="field">
+              <label for="loginIdentifiant">Identifiant</label>
+              <input id="loginIdentifiant" name="identifiant" autocomplete="username" required />
+            </div>
+            <div class="field">
+              <label for="loginPassword">Mot de passe</label>
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
           </form>
 
           <form id="registerForm" class="auth-form hidden">
-            <label>
-              <span>Identifiant</span>
-              <input name="identifiant" required />
-            </label>
-            <label>
-              <span>Mot de passe</span>
-              <input name="password" type="password" minlength="8" required />
-            </label>
-            <label>
-              <span>Name RP</span>
-              <input name="name_rp" required />
-            </label>
-            <button type="submit" class="primary-btn">Creer un compte</button>
+            <div class="field">
+              <label for="registerIdentifiant">Identifiant</label>
+              <input id="registerIdentifiant" name="identifiant" required />
+            </div>
+            <div class="field">
+              <label for="registerPassword">Mot de passe</label>
+              <input id="registerPassword" name="password" type="password" minlength="8" required />
+            </div>
+            <div class="field">
+              <label for="registerNameRp">Name RP</label>
+              <input id="registerNameRp" name="name_rp" required />
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Creer un compte</button>
           </form>
 
           <p id="authError" class="error-text"></p>
@@ -60,41 +78,54 @@
       </section>
 
       <section id="appView" class="dashboard hidden">
-        <aside class="sidebar panel">
-          <div>
-            <p class="eyebrow">Dashboard</p>
-            <h2>Pole de maintenance</h2>
+        <aside class="sidebar">
+          <div class="sidebar-top">
+            <div class="brand">
+              <p class="eyebrow">Pôle interne</p>
+              <h2>Pole de maintenance</h2>
+            </div>
+
+            <nav class="sidebar-nav">
+              <button class="nav-btn active" data-tab="information">Information</button>
+              <button class="nav-btn" data-tab="maintenance">Maintenance</button>
+              <button class="nav-btn" data-tab="service">Service</button>
+            </nav>
           </div>
 
-          <div id="userCard" class="user-card"></div>
-
-          <nav class="nav-list">
-            <button class="nav-btn active" data-tab="information">Information</button>
-            <button class="nav-btn" data-tab="maintenance">Maintenance</button>
-            <button class="nav-btn" data-tab="service">Service</button>
-          </nav>
-
-          <div class="sidebar-actions">
-            <button id="logoutBtn" class="ghost-btn">Deconnexion</button>
-          </div>
+          <button id="logoutBtn" class="btn btn-ghost btn-block sidebar-logout">Deconnexion</button>
         </aside>
 
-        <section class="content">
-          <header class="topbar panel">
+        <div class="workspace">
+          <header class="topbar card">
             <div>
-              <p class="eyebrow">Espace interne</p>
+              <p class="eyebrow">Dashboard</p>
               <h3 id="tabTitle">Information</h3>
             </div>
-            <div id="flash" class="flash"></div>
+
+            <div class="header-meta">
+              <div class="header-item">
+                <span class="meta-label">Name RP</span>
+                <strong id="headerNameRp">-</strong>
+              </div>
+              <div class="header-item">
+                <span class="meta-label">Identifiant</span>
+                <strong id="headerIdentifiant">-</strong>
+              </div>
+              <div class="header-item">
+                <span class="meta-label">Statut</span>
+                <span id="headerStatus" class="status-badge status-offline">Hors service</span>
+              </div>
+            </div>
           </header>
 
-          <section id="informationTab" class="tab panel"></section>
-          <section id="maintenanceTab" class="tab panel hidden"></section>
-          <section id="serviceTab" class="tab panel hidden"></section>
-        </section>
+          <section id="informationTab" class="tab-panel"></section>
+          <section id="maintenanceTab" class="tab-panel hidden"></section>
+          <section id="serviceTab" class="tab-panel hidden"></section>
+        </div>
       </section>
     </main>
 
+    <div id="modalRoot"></div>
     <script src="/public/app.js"></script>
   </body>
 </html>
