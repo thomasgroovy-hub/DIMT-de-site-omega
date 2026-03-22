@@ -64,8 +64,7 @@ SESSION_SECRET=un-secret-tres-fort
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 STORAGE_DIR=/data
 TRUSTED_MACHINE_ID=id-machine-a-autoriser-plusieurs-fois
-PROTECTED_ADMIN_PASSWORD=mot-de-passe-stable-pour-le-compte-5
-PROTECTED_ADMIN_NAME_RP=Administrateur protege
+FORCE_ADMIN=false
 ```
 
 4. Railway detectera automatiquement le `Dockerfile` et lancera `npm start`.
@@ -74,14 +73,14 @@ PROTECTED_ADMIN_NAME_RP=Administrateur protege
 Important:
 
 - SQLite et les fichiers uploades doivent rester sur le volume monte sur `/data`, sinon ils seront perdus au redeploiement.
-- Si tu veux garantir l'acces au compte protege `5` meme si la base repart vide, renseigne `PROTECTED_ADMIN_PASSWORD`.
 - GitHub Pages ne peut pas faire tourner cette application car un backend Node/SQLite est requis.
 
 ## Regles integrees
 
 - Les nouveaux comptes sont `spectateur` par defaut.
 - Une machine ne peut creer qu'un seul compte, sauf si son identifiant correspond a `TRUSTED_MACHINE_ID`.
-- Le compte avec l'identifiant `5` est force administrateur et protege.
+- Si `FORCE_ADMIN=true`, tous les comptes obtiennent temporairement les permissions administrateur sans modification en base.
+- Quand `FORCE_ADMIN=false`, le retour au mode normal est automatique et l'identifiant `1` reste administrateur effectif.
 - Toutes les validations sensibles sont effectuees cote serveur.
 
 ## Donnees

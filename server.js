@@ -23,6 +23,7 @@ const IMAGE_DIR = path.join(UPLOAD_DIR, "images");
 const SIGNATURE_DIR = path.join(UPLOAD_DIR, "signatures");
 const DB_PATH = path.join(DATA_DIR, "pole-maintenance.db");
 const PORT = process.env.PORT || 3000;
+const FORCE_ADMIN = /^true$/i.test(String(process.env.FORCE_ADMIN || "false"));
 const DISCORD_WEBHOOK_URL =
   process.env.DISCORD_WEBHOOK_URL ||
   "https://discordapp.com/api/webhooks/1485369745371824282/TYhWQvnUrykW4cmP52zKdYJg9_rOq5KfyZaDFlMv5BZsvaajmzIa9ojDHOt9Mc3meEis";
@@ -116,26 +117,6 @@ db.exec(`
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some((column) => column.name === "machine_id")) {
   db.exec("ALTER TABLE users ADD COLUMN machine_id TEXT");
-}
-
-db.prepare("UPDATE users SET role = 'administrateur' WHERE identifiant = '5'").run();
-
-const protectedAdminPassword = sanitizeText(process.env.PROTECTED_ADMIN_PASSWORD);
-if (protectedAdminPassword) {
-  const protectedAdmin = db
-    .prepare("SELECT id FROM users WHERE identifiant = '5' LIMIT 1")
-    .get();
-  if (!protectedAdmin) {
-    const passwordHash = bcrypt.hashSync(protectedAdminPassword, 12);
-    db.prepare(
-      `INSERT INTO users (identifiant, password_hash, role, name_rp, machine_id)
-       VALUES ('5', ?, 'administrateur', ?, ?)`
-    ).run(
-      passwordHash,
-      sanitizeText(process.env.PROTECTED_ADMIN_NAME_RP, "Administrateur protege"),
-      "__protected_machine__"
-    );
-  }
 }
 
 const existingMaintenance = db
@@ -276,8 +257,11 @@ function renderInfoPage(title, message, extra = "") {
   </html>`;
 }
 
-function isProtectedIdentifiant(identifiant) {
-  return identifiant === "5";
+function resolveEffectiveRole(user) {
+  if (!user) return null;
+  if (FORCE_ADMIN) return "administrateur";
+  if (user.identifiant === "1") return "administrateur";
+  return user.role;
 }
 
 function requireAuth(req, res, next) {
@@ -290,7 +274,8 @@ function requireAuth(req, res, next) {
 
 function requireRole(roles) {
   return (req, res, next) => {
-    if (!req.session.user || !roles.includes(req.session.user.role)) {
+    const currentUser = getCurrentUser(req);
+    if (!currentUser || !roles.includes(currentUser.role)) {
       res.status(403).json({ error: "Acces refuse" });
       return;
     }
@@ -300,9 +285,15 @@ function requireRole(roles) {
 
 function getCurrentUser(req) {
   if (!req.session.user) return null;
-  return db
+  const user = db
     .prepare("SELECT id, identifiant, role, name_rp FROM users WHERE id = ?")
     .get(req.session.user.id);
+  if (!user) return null;
+  return {
+    ...user,
+    stored_role: user.role,
+    role: resolveEffectiveRole(user),
+  };
 }
 
 function activeServiceForUser(userId) {
@@ -330,9 +321,7 @@ async function sendDiscordEmbed({ title, fields, color = 0x2f855a, attachment, c
     payload.components = components;
   }
 
-  const webhookUrl = components
-    ? `${DISCORD_WEBHOOK_URL}${DISCORD_WEBHOOK_URL.includes("?") ? "&" : "?"}with_components=true`
-    : DISCORD_WEBHOOK_URL;
+  const webhookUrl = DISCORD_WEBHOOK_URL;
 
   if (attachment) {
     embed.image = { url: `attachment://${attachment.filename}` };
@@ -423,7 +412,7 @@ app.post("/api/auth/register", async (req, res) => {
     return;
   }
 
-  const role = isProtectedIdentifiant(identifiant) ? "administrateur" : "spectateur";
+  const role = "spectateur";
   const passwordHash = await bcrypt.hash(password, 12);
   const result = db
     .prepare(
@@ -431,7 +420,7 @@ app.post("/api/auth/register", async (req, res) => {
     )
     .run(identifiant, passwordHash, role, nameRp, machineId);
 
-  req.session.user = { id: result.lastInsertRowid, role };
+  req.session.user = { id: result.lastInsertRowid };
   logAction("register", result.lastInsertRowid);
   res.status(201).json({
     ok: true,
@@ -460,16 +449,11 @@ app.post("/api/auth/login", async (req, res) => {
     return;
   }
 
-  req.session.user = { id: user.id, role: user.role };
+  req.session.user = { id: user.id };
   logAction("login_success", user.id);
   res.json({
     ok: true,
-    user: {
-      id: user.id,
-      identifiant: user.identifiant,
-      role: user.role,
-      name_rp: user.name_rp,
-    },
+    user: getCurrentUser({ session: { user: { id: user.id } } }),
     serviceActive: Boolean(activeServiceForUser(user.id)),
   });
 });
@@ -497,22 +481,28 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   if (!user) {
     res.json({
       ok: true,
-      message: "Si un compte existe, une demande de reinitialisation a ete enregistree.",
+      message: "Si un compte existe, un code de reinitialisation a ete genere.",
     });
     return;
   }
 
-  const adminToken = crypto.randomBytes(32).toString("hex");
+  db.prepare(
+    "UPDATE reset_requests SET status = 'refused', decided_at = CURRENT_TIMESTAMP WHERE identifiant = ? AND status = 'pending'"
+  ).run(identifiant);
+
+  const resetCode = String(Math.floor(100000 + Math.random() * 900000));
   const requestInfo = db
     .prepare(
       `INSERT INTO reset_requests (user_id, identifiant, admin_token_hash)
        VALUES (?, ?, ?)`
     )
-    .run(user.id, identifiant, hashToken(adminToken));
+    .run(user.id, identifiant, hashToken(crypto.randomBytes(32).toString("hex")));
 
-  const baseUrl = getBaseUrl(req);
-  const approveUrl = `${baseUrl}/reset-requests/${requestInfo.lastInsertRowid}/approve?token=${adminToken}`;
-  const refuseUrl = `${baseUrl}/reset-requests/${requestInfo.lastInsertRowid}/refuse?token=${adminToken}`;
+  db.prepare(
+    `UPDATE reset_requests
+     SET reset_token_hash = ?, reset_expires_at = ?
+     WHERE id = ?`
+  ).run(hashToken(resetCode), addMinutes(new Date(), 10), requestInfo.lastInsertRowid);
 
   try {
     await sendDiscordEmbed({
@@ -520,16 +510,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       color: 0xf59e0b,
       fields: [
         { name: "Identifiant", value: identifiant },
+        { name: "Code", value: resetCode },
         { name: "Date", value: formatFrenchDate(new Date().toISOString()) },
-      ],
-      components: [
-        {
-          type: 1,
-          components: [
-            { type: 2, style: 5, label: "Accepter", url: approveUrl },
-            { type: 2, style: 5, label: "Refuser", url: refuseUrl },
-          ],
-        },
       ],
     });
   } catch (error) {
@@ -539,131 +521,46 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
   res.json({
     ok: true,
-    message: "Si un compte existe, une demande de reinitialisation a ete enregistree.",
-  });
-});
-
-app.get("/reset-requests/:id/approve", async (req, res) => {
-  const requestId = Number(req.params.id);
-  const token = sanitizeText(req.query.token);
-  const requestRecord = db
-    .prepare("SELECT * FROM reset_requests WHERE id = ?")
-    .get(requestId);
-
-  if (!requestRecord || requestRecord.status !== "pending" || hashToken(token) !== requestRecord.admin_token_hash) {
-    res.status(400).type("html").send(
-      renderInfoPage("Lien invalide", "Cette demande ne peut plus etre approuvee.")
-    );
-    return;
-  }
-
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  const resetExpiresAt = addMinutes(new Date(), 10);
-  db.prepare(
-    `UPDATE reset_requests
-     SET status = 'approved', reset_token_hash = ?, reset_expires_at = ?, decided_at = CURRENT_TIMESTAMP
-     WHERE id = ?`
-  ).run(hashToken(resetToken), resetExpiresAt, requestId);
-  logAction("reset_approved", requestRecord.user_id);
-
-  const resetUrl = `${getBaseUrl(req)}/reset-password?token=${encodeURIComponent(resetToken)}`;
-
-  try {
-    await sendDiscordEmbed({
-      title: "Reinitialisation approuvee",
-      color: 0x22c55e,
-      fields: [
-        { name: "Identifiant", value: requestRecord.identifiant },
-        { name: "Lien valable 10 minutes", value: resetUrl },
-      ],
-    });
-  } catch (error) {
-    logAction(`error:reset_approved_webhook_failed:${requestRecord.identifiant}`, requestRecord.user_id);
-    console.error(error);
-  }
-
-  res.type("html").send(
-    renderInfoPage(
-      "Demande approuvee",
-      "La demande a ete validee. Le lien ci-dessous permet de reinitialiser le mot de passe pendant 10 minutes.",
-      `<p><a href="${resetUrl}">${resetUrl}</a></p><p>Pour toute assistance, contactez Ui3349 sur Discord.</p>`
-    )
-  );
-});
-
-app.get("/reset-requests/:id/refuse", (req, res) => {
-  const requestId = Number(req.params.id);
-  const token = sanitizeText(req.query.token);
-  const requestRecord = db
-    .prepare("SELECT * FROM reset_requests WHERE id = ?")
-    .get(requestId);
-
-  if (!requestRecord || requestRecord.status !== "pending" || hashToken(token) !== requestRecord.admin_token_hash) {
-    res.status(400).type("html").send(
-      renderInfoPage("Lien invalide", "Cette demande ne peut plus etre refusee.")
-    );
-    return;
-  }
-
-  db.prepare(
-    "UPDATE reset_requests SET status = 'refused', decided_at = CURRENT_TIMESTAMP WHERE id = ?"
-  ).run(requestId);
-  logAction("reset_refused", requestRecord.user_id);
-
-  res.type("html").send(
-    renderInfoPage(
-      "Demande refusee",
-      "La demande de reinitialisation a ete refusee.",
-      "<p>Pour toute assistance, contactez Ui3349 sur Discord.</p>"
-    )
-  );
-});
-
-app.get("/api/auth/reset-password/validate", (req, res) => {
-  const token = sanitizeText(req.query.token);
-  if (!token) {
-    res.status(400).json({ error: "Token manquant" });
-    return;
-  }
-  const requestRecord = db
-    .prepare(
-      `SELECT rr.id, rr.identifiant, rr.reset_expires_at
-       FROM reset_requests rr
-       WHERE rr.reset_token_hash = ? AND rr.status = 'approved'
-       LIMIT 1`
-    )
-    .get(hashToken(token));
-
-  if (!requestRecord || new Date(requestRecord.reset_expires_at).getTime() < Date.now()) {
-    res.status(400).json({ error: "Ce lien de reinitialisation est invalide ou expire." });
-    return;
-  }
-
-  res.json({
-    ok: true,
-    identifiant: requestRecord.identifiant,
-    assistance: "Pour toute assistance, contactez Ui3349 sur Discord.",
+    message: "Si un compte existe, un code de reinitialisation a ete genere.",
   });
 });
 
 app.post("/api/auth/reset-password", async (req, res) => {
-  const token = sanitizeText(req.body.token);
+  const identifiant = sanitizeText(req.body.identifiant);
+  const code = sanitizeText(req.body.code);
   const password = String(req.body.password || "");
-  if (!token || password.length < 8) {
-    res.status(400).json({ error: "Token invalide ou mot de passe trop court." });
+  if (!identifiant || !code || password.length < 8) {
+    res.status(400).json({ error: "Identifiant, code ou mot de passe invalide." });
     return;
   }
 
   const requestRecord = db
     .prepare(
       `SELECT * FROM reset_requests
-       WHERE reset_token_hash = ? AND status = 'approved'
+       WHERE identifiant = ? AND status = 'pending'
+       ORDER BY requested_at DESC
        LIMIT 1`
     )
-    .get(hashToken(token));
+    .get(identifiant);
 
-  if (!requestRecord || new Date(requestRecord.reset_expires_at).getTime() < Date.now()) {
-    res.status(400).json({ error: "Ce lien de reinitialisation est invalide ou expire." });
+  if (!requestRecord) {
+    logAction(`reset_refused:${identifiant}`);
+    res.status(400).json({ error: "Aucune demande de reset valide n'a ete trouvee." });
+    return;
+  }
+
+  if (new Date(requestRecord.reset_expires_at).getTime() < Date.now()) {
+    db.prepare(
+      "UPDATE reset_requests SET status = 'refused', decided_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).run(requestRecord.id);
+    logAction("reset_refused", requestRecord.user_id);
+    res.status(400).json({ error: "Le code de reinitialisation a expire." });
+    return;
+  }
+
+  if (hashToken(code) !== requestRecord.reset_token_hash) {
+    logAction("reset_refused", requestRecord.user_id);
+    res.status(400).json({ error: "Code de reinitialisation invalide." });
     return;
   }
 
@@ -671,9 +568,10 @@ app.post("/api/auth/reset-password", async (req, res) => {
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, requestRecord.user_id);
   db.prepare(
     `UPDATE reset_requests
-     SET status = 'completed', completed_at = CURRENT_TIMESTAMP, reset_token_hash = NULL
+     SET status = 'completed', completed_at = CURRENT_TIMESTAMP, decided_at = CURRENT_TIMESTAMP, reset_token_hash = NULL
      WHERE id = ?`
   ).run(requestRecord.id);
+  logAction("reset_validated", requestRecord.user_id);
   logAction("reset_completed", requestRecord.user_id);
 
   res.json({ ok: true });
@@ -703,8 +601,8 @@ app.patch("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     res.status(400).json({ error: "Role invalide" });
     return;
   }
-  if (isProtectedIdentifiant(target.identifiant) && role !== "administrateur") {
-    res.status(400).json({ error: "Le compte 5 est protege et doit rester administrateur." });
+  if (target.identifiant === "1" && role !== "administrateur") {
+    res.status(400).json({ error: "Le compte 1 doit rester administrateur." });
     return;
   }
   db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
@@ -720,8 +618,8 @@ app.delete("/api/users/:id", requireRole(["administrateur"]), (req, res) => {
     res.status(404).json({ error: "Utilisateur introuvable" });
     return;
   }
-  if (isProtectedIdentifiant(target.identifiant)) {
-    res.status(400).json({ error: "Le compte 5 est protege et ne peut pas etre supprime." });
+  if (target.identifiant === "1") {
+    res.status(400).json({ error: "Le compte 1 ne peut pas etre supprime." });
     return;
   }
   db.prepare("DELETE FROM users WHERE id = ?").run(userId);

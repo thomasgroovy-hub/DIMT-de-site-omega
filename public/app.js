@@ -139,10 +139,8 @@ async function loadSession() {
 }
 
 async function maybeBootResetPasswordFlow() {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
   const isResetPath = window.location.pathname === "/reset-password";
-  if (!token || !isResetPath) {
+  if (!isResetPath) {
     return false;
   }
 
@@ -153,26 +151,31 @@ async function maybeBootResetPasswordFlow() {
   document.getElementById("registerForm").classList.add("hidden");
   document.getElementById("forgotForm").classList.add("hidden");
 
-  try {
-    const validation = await api(`/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`);
-    renderResetPasswordScreen(token, validation.identifiant, validation.assistance);
-  } catch (error) {
-    renderResetPasswordError(error.message);
-  }
+  renderResetPasswordScreen();
   return true;
 }
 
-function renderResetPasswordScreen(token, identifiant, assistance) {
+function renderResetPasswordScreen() {
+  const params = new URLSearchParams(window.location.search);
+  const presetIdentifiant = params.get("identifiant") || "";
   authView.innerHTML = `
     <div class="auth-shell">
       <div class="auth-hero card">
         <p class="eyebrow">Reinitialisation</p>
         <h1>Nouveau mot de passe</h1>
-        <p class="auth-copy">Compte concerne : <strong>${escapeHtml(identifiant)}</strong></p>
-        <div class="chip">${escapeHtml(assistance)}</div>
+        <p class="auth-copy">Saisis ton identifiant, le code recu via Discord et ton nouveau mot de passe.</p>
+        <div class="chip">Contactez Ui3349 sur Discord si necessaire.</div>
       </div>
       <div class="auth-card card">
         <form id="resetPasswordForm" class="auth-form">
+          <div class="field">
+            <label for="resetIdentifiant">Identifiant</label>
+            <input id="resetIdentifiant" name="identifiant" value="${escapeHtml(presetIdentifiant)}" required />
+          </div>
+          <div class="field">
+            <label for="resetCodeInput">Code de validation</label>
+            <input id="resetCodeInput" name="code" inputmode="numeric" required />
+          </div>
           <div class="field">
             <label for="resetPasswordInput">Nouveau mot de passe</label>
             <input id="resetPasswordInput" name="password" type="password" minlength="8" required />
@@ -194,6 +197,8 @@ function renderResetPasswordScreen(token, identifiant, assistance) {
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const identifiant = document.getElementById("resetIdentifiant").value.trim();
+    const code = document.getElementById("resetCodeInput").value.trim();
     const password = document.getElementById("resetPasswordInput").value;
     const confirm = document.getElementById("resetPasswordConfirm").value;
     const errorNode = document.getElementById("resetError");
@@ -204,7 +209,7 @@ function renderResetPasswordScreen(token, identifiant, assistance) {
     try {
       await api("/api/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ identifiant, code, password }),
       });
       showToast("Mot de passe modifie", "La reinitialisation est terminee.");
       window.location.href = "/";
@@ -213,19 +218,6 @@ function renderResetPasswordScreen(token, identifiant, assistance) {
       showToast("Erreur", error.message, "error");
     }
   });
-}
-
-function renderResetPasswordError(message) {
-  authView.innerHTML = `
-    <div class="auth-shell">
-      <div class="auth-hero card">
-        <p class="eyebrow">Reinitialisation</p>
-        <h1>Lien invalide</h1>
-        <p class="auth-copy">${escapeHtml(message)}</p>
-        <div class="chip">Pour toute assistance, contactez Ui3349 sur Discord.</div>
-      </div>
-    </div>
-  `;
 }
 
 function bindAuthTabs() {
@@ -309,6 +301,7 @@ function bindAuthForms() {
       authError.textContent = "";
       authHelp.textContent = result.message || "Demande envoyee.";
       showToast("Demande envoyee", "Une validation manuelle a ete notifiee.");
+      window.location.href = `/reset-password?identifiant=${encodeURIComponent(form.get("identifiant"))}`;
     } catch (error) {
       authError.textContent = error.message;
       showToast("Erreur", error.message, "error");
