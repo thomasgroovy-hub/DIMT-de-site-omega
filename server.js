@@ -25,7 +25,7 @@ const DB_PATH = path.join(DATA_DIR, "pole-maintenance.db");
 const PORT = process.env.PORT || 3000;
 const DISCORD_WEBHOOK_URL =
   process.env.DISCORD_WEBHOOK_URL ||
-  "https://discord.com/api/webhooks/1480952932517281963/Mr-PxwQjFveFVK6Lm-klSF_GVg77uz6DBeCt487CTMkRBnDmzEKOJtJxd9FP685lhisG";
+  "https://discordapp.com/api/webhooks/1485369745371824282/TYhWQvnUrykW4cmP52zKdYJg9_rOq5KfyZaDFlMv5BZsvaajmzIa9ojDHOt9Mc3meEis";
 
 for (const dir of [DATA_DIR, UPLOAD_DIR, IMAGE_DIR, SIGNATURE_DIR]) {
   fs.mkdirSync(dir, { recursive: true });
