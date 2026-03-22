@@ -23,6 +23,7 @@ const state = {
 const authView = document.getElementById("authView");
 const appView = document.getElementById("appView");
 const authError = document.getElementById("authError");
+const authHelp = document.getElementById("authHelp");
 const tabTitle = document.getElementById("tabTitle");
 const informationTab = document.getElementById("informationTab");
 const maintenanceTab = document.getElementById("maintenanceTab");
@@ -90,7 +91,17 @@ async function boot() {
   bindNavigation();
   bindLogout();
   document.addEventListener("click", handleDocumentClick);
+  if (await maybeBootResetPasswordFlow()) return;
   await loadSession();
+}
+
+function setAuthMode(mode) {
+  document.getElementById("loginForm").classList.toggle("hidden", mode !== "login");
+  document.getElementById("registerForm").classList.toggle("hidden", mode !== "register");
+  document.getElementById("forgotForm").classList.toggle("hidden", mode !== "forgot");
+  document.querySelectorAll("[data-auth-tab]").forEach((item) => {
+    item.classList.toggle("active", item.dataset.authTab === mode);
+  });
 }
 
 async function loadSession() {
@@ -113,26 +124,124 @@ async function loadSession() {
   switchTab("information");
 }
 
+async function maybeBootResetPasswordFlow() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  const isResetPath = window.location.pathname === "/reset-password";
+  if (!token || !isResetPath) {
+    return false;
+  }
+
+  authView.classList.remove("hidden");
+  appView.classList.add("hidden");
+  setAuthMode("login");
+  document.getElementById("loginForm").classList.add("hidden");
+  document.getElementById("registerForm").classList.add("hidden");
+  document.getElementById("forgotForm").classList.add("hidden");
+
+  try {
+    const validation = await api(`/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`);
+    renderResetPasswordScreen(token, validation.identifiant, validation.assistance);
+  } catch (error) {
+    renderResetPasswordError(error.message);
+  }
+  return true;
+}
+
+function renderResetPasswordScreen(token, identifiant, assistance) {
+  authView.innerHTML = `
+    <div class="auth-shell">
+      <div class="auth-hero card">
+        <p class="eyebrow">Reinitialisation</p>
+        <h1>Nouveau mot de passe</h1>
+        <p class="auth-copy">Compte concerne : <strong>${escapeHtml(identifiant)}</strong></p>
+        <div class="chip">${escapeHtml(assistance)}</div>
+      </div>
+      <div class="auth-card card">
+        <form id="resetPasswordForm" class="auth-form">
+          <div class="field">
+            <label for="resetPasswordInput">Nouveau mot de passe</label>
+            <input id="resetPasswordInput" name="password" type="password" minlength="8" required />
+          </div>
+          <div class="field">
+            <label for="resetPasswordConfirm">Confirmation</label>
+            <input id="resetPasswordConfirm" name="password_confirm" type="password" minlength="8" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Reinitialiser le mot de passe</button>
+        </form>
+        <p id="resetError" class="error-text"></p>
+      </div>
+    </div>
+  `;
+
+  const form = document.getElementById("resetPasswordForm");
+  form.querySelectorAll("input").forEach((input) => {
+    input.addEventListener("input", () => validateField(input));
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password = document.getElementById("resetPasswordInput").value;
+    const confirm = document.getElementById("resetPasswordConfirm").value;
+    const errorNode = document.getElementById("resetError");
+    if (password !== confirm) {
+      errorNode.textContent = "La confirmation ne correspond pas.";
+      return;
+    }
+    try {
+      await api("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+      showToast("Mot de passe modifie", "La reinitialisation est terminee.");
+      window.location.href = "/";
+    } catch (error) {
+      errorNode.textContent = error.message;
+      showToast("Erreur", error.message, "error");
+    }
+  });
+}
+
+function renderResetPasswordError(message) {
+  authView.innerHTML = `
+    <div class="auth-shell">
+      <div class="auth-hero card">
+        <p class="eyebrow">Reinitialisation</p>
+        <h1>Lien invalide</h1>
+        <p class="auth-copy">${escapeHtml(message)}</p>
+        <div class="chip">Pour toute assistance, contactez Ui3349 sur Discord.</div>
+      </div>
+    </div>
+  `;
+}
+
 function bindAuthTabs() {
   document.querySelectorAll("[data-auth-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelectorAll("[data-auth-tab]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      const isRegister = button.dataset.authTab === "register";
-      document.getElementById("loginForm").classList.toggle("hidden", isRegister);
-      document.getElementById("registerForm").classList.toggle("hidden", !isRegister);
+      setAuthMode(button.dataset.authTab);
       authError.textContent = "";
+      authHelp.textContent = "";
     });
   });
 }
 
 function bindAuthForms() {
-  for (const formId of ["loginForm", "registerForm"]) {
+  for (const formId of ["loginForm", "registerForm", "forgotForm"]) {
     const form = document.getElementById(formId);
     form.querySelectorAll("input").forEach((input) => {
       input.addEventListener("input", () => validateField(input));
     });
   }
+
+  document.getElementById("forgotPasswordBtn").addEventListener("click", () => {
+    setAuthMode("forgot");
+    authError.textContent = "";
+    authHelp.textContent = "Pour toute assistance, contactez Ui3349 sur Discord.";
+  });
+  document.getElementById("backToLoginBtn").addEventListener("click", () => {
+    setAuthMode("login");
+    authError.textContent = "";
+    authHelp.textContent = "";
+  });
 
   document.getElementById("loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -166,6 +275,25 @@ function bindAuthForms() {
       authError.textContent = "";
       showToast("Compte cree", "Le compte a bien ete initialise.");
       await loadSession();
+    } catch (error) {
+      authError.textContent = error.message;
+      showToast("Erreur", error.message, "error");
+    }
+  });
+
+  document.getElementById("forgotForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      const result = await api("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify(Object.fromEntries(form.entries())),
+      });
+      formElement.reset();
+      authError.textContent = "";
+      authHelp.textContent = result.message || "Demande envoyee.";
+      showToast("Demande envoyee", "Une validation manuelle a ete notifiee.");
     } catch (error) {
       authError.textContent = error.message;
       showToast("Erreur", error.message, "error");

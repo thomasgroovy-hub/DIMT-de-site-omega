@@ -55,6 +55,7 @@
               />
             </div>
             <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+            <button type="button" id="forgotPasswordBtn" class="btn btn-ghost btn-block">Mot de passe oublie</button>
           </form>
 
           <form id="registerForm" class="auth-form hidden">
@@ -73,7 +74,17 @@
             <button type="submit" class="btn btn-primary btn-block">Creer un compte</button>
           </form>
 
+          <form id="forgotForm" class="auth-form hidden">
+            <div class="field">
+              <label for="forgotIdentifiant">Identifiant</label>
+              <input id="forgotIdentifiant" name="identifiant" required />
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Envoyer la demande</button>
+            <button type="button" id="backToLoginBtn" class="btn btn-ghost btn-block">Retour a la connexion</button>
+          </form>
+
           <p id="authError" class="error-text"></p>
+          <p id="authHelp" class="muted"></p>
         </div>
       </section>
 

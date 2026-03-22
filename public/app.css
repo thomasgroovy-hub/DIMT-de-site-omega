@@ -286,6 +286,11 @@ textarea {
   color: #fca5a5;
 }
 
+#authHelp {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .dashboard {
   display: grid;
   grid-template-columns: 272px 1fr;

@@ -5,6 +5,7 @@ Application web interne complete pour gerer l'information, la maintenance et le 
 ## Fonctionnalites
 
 - Authentification interne avec creation de compte et connexion sur une page unique
+- Reinitialisation de mot de passe avec validation manuelle via Discord et token temporaire
 - Hash des mots de passe avec `bcryptjs`
 - Roles `administrateur`, `moderateur`, `spectateur`
 - Dashboard en trois onglets: `Information`, `Maintenance`, `Service`
@@ -12,6 +13,7 @@ Application web interne complete pour gerer l'information, la maintenance et le 
 - Tableau de maintenance dynamique persistant
 - Prise et fin de service avec envoi Discord en embed
 - Rapports d'incident et de service avec signature canvas et envoi Discord en embed
+- Logs persistants des connexions, resets et erreurs
 - Verification des permissions cote serveur
 - Stockage persistant en SQLite
 
